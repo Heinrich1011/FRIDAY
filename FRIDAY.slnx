@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="Friday.Core/Friday.Core.csproj" />
+  <Project Path="Friday.Infrastructure/Friday.Infrastructure.csproj" />
+  <Project Path="Friday.Mcp/Friday.Mcp.csproj" />
+  <Project Path="Friday.Mcp.Server/Friday.Mcp.Server.csproj" />
+  <Project Path="FRIDAY/FRIDAY.csproj" />
+  <Project Path="Friday.Tests/Friday.Tests.csproj" />
+</Solution>

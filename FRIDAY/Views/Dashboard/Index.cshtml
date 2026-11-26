@@ -1,0 +1,226 @@
+@using System.Text.Json
+@model DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+    var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+}
+
+<div class="container-fluid px-3 px-lg-4 py-4">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                Friday Live Dashboard@(string.IsNullOrWhiteSpace(Model.GreetingName) ? "" : $" — {Model.GreetingName}")
+            </h2>
+            <p class="text-secondary mb-0 small">
+                Real-time metrics and visualizations powered strictly by your SQLite database (@Model.RegisteredMcpToolsCount MCP tools active).
+            </p>
+        </div>
+        <a asp-controller="Home" asp-action="Index" class="btn btn-friday-send text-decoration-none">
+            Ask Friday AI &rarr;
+        </a>
+    </div>
+
+    <!-- 6 KPI Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="kpi-card">
+                <div class="kpi-label">Today's Tasks</div>
+                <div class="kpi-value text-info">@Model.TodayTasksCount</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="kpi-card">
+                <div class="kpi-label">Completed (Week)</div>
+                <div class="kpi-value text-success">@Model.CompletedTasksThisWeekCount</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="kpi-card">
+                <div class="kpi-label">Overdue Tasks</div>
+                <div class="kpi-value @(Model.OverdueTasksCount > 0 ? "text-danger" : "text-light")">@Model.OverdueTasksCount</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="kpi-card">
+                <div class="kpi-label">Upcoming Events</div>
+                <div class="kpi-value text-primary">@Model.UpcomingEventsCount</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="kpi-card">
+                <div class="kpi-label">Active Projects</div>
+                <div class="kpi-value text-warning">@Model.ActiveProjectsCount</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="kpi-card">
+                <div class="kpi-label">Monthly Expenses</div>
+                <div class="kpi-value" style="font-size:1.35rem;">@Model.CurrencyCode @Model.MonthlyExpensesTotal.ToString("N2")</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4 Visualizations -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-lg-6">
+            <div class="friday-panel h-100">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold mb-0">@Model.TasksCompletedOverTimeChart.Title</h6>
+                    <span class="text-secondary small">7-Day Trend</span>
+                </div>
+                <div style="height:250px;position:relative;">
+                    <canvas id="dashChartCompleted" data-chart="@JsonSerializer.Serialize(Model.TasksCompletedOverTimeChart, jsonOpts)"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="friday-panel h-100">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold mb-0">@Model.TasksByPriorityChart.Title</h6>
+                    <span class="text-secondary small">Active Workload</span>
+                </div>
+                <div style="height:250px;position:relative;">
+                    <canvas id="dashChartPriority" data-chart="@JsonSerializer.Serialize(Model.TasksByPriorityChart, jsonOpts)"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="friday-panel h-100">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold mb-0">@Model.ExpensesByCategoryChart.Title</h6>
+                    <span class="text-secondary small">@Model.CurrencyCode</span>
+                </div>
+                @if (Model.ExpensesByCategoryChart.Labels.Count == 0)
+                {
+                    <div class="text-secondary small py-5 text-center">No expenses recorded for this month yet.</div>
+                }
+                else
+                {
+                    <div style="height:250px;position:relative;">
+                        <canvas id="dashChartExpenses" data-chart="@JsonSerializer.Serialize(Model.ExpensesByCategoryChart, jsonOpts)"></canvas>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="friday-panel h-100">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold mb-0">@Model.ProjectStatusChart.Title</h6>
+                    <span class="text-secondary small">Portfolio</span>
+                </div>
+                @if (Model.ProjectStatusChart.Labels.Count == 0)
+                {
+                    <div class="text-secondary small py-5 text-center">No projects created yet.</div>
+                }
+                else
+                {
+                    <div style="height:250px;position:relative;">
+                        <canvas id="dashChartProjects" data-chart="@JsonSerializer.Serialize(Model.ProjectStatusChart, jsonOpts)"></canvas>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Focus Panels -->
+    <div class="row g-3">
+        <div class="col-12 col-lg-4">
+            <div class="friday-panel h-100">
+                <h6 class="fw-bold mb-3">Today &amp; Overdue Tasks</h6>
+                @if (Model.TodayAndOverdueTasks.Count == 0)
+                {
+                    <p class="text-secondary small mb-0">No tasks due today or overdue.</p>
+                }
+                else
+                {
+                    <div class="d-flex flex-column gap-2">
+                        @foreach (var t in Model.TodayAndOverdueTasks)
+                        {
+                            <div class="p-2 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-semibold small">@t.Title</div>
+                                    <div class="text-secondary" style="font-size:0.75rem;">
+                                        @(t.ProjectName ?? "General") &bull; @t.Priority
+                                    </div>
+                                </div>
+                                @if (t.IsOverdue)
+                                {
+                                    <span class="badge bg-danger bg-opacity-25 text-danger">Overdue</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-info bg-opacity-25 text-info">Today</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="friday-panel h-100">
+                <h6 class="fw-bold mb-3">Upcoming Events</h6>
+                @if (Model.UpcomingEvents.Count == 0)
+                {
+                    <p class="text-secondary small mb-0">No upcoming events scheduled.</p>
+                }
+                else
+                {
+                    <div class="d-flex flex-column gap-2">
+                        @foreach (var ev in Model.UpcomingEvents)
+                        {
+                            <div class="p-2 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25">
+                                <div class="fw-semibold small">@ev.Title</div>
+                                <div class="text-secondary" style="font-size:0.76rem;">
+                                    @ev.StartDateTimeUtc.ToLocalTime().ToString("MMM dd, HH:mm")
+                                    @(string.IsNullOrWhiteSpace(ev.Location) ? "" : $" • {ev.Location}")
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="friday-panel h-100">
+                <h6 class="fw-bold mb-3">Active Projects</h6>
+                @if (Model.ActiveProjects.Count == 0)
+                {
+                    <p class="text-secondary small mb-0">No active projects yet.</p>
+                }
+                else
+                {
+                    <div class="d-flex flex-column gap-2">
+                        @foreach (var p in Model.ActiveProjects)
+                        {
+                            int pct = p.TotalTasks > 0 ? (int)Math.Round(p.CompletedTasks * 100.0 / p.TotalTasks) : 0;
+                            <div class="p-2 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25">
+                                <div class="d-flex justify-content-between small fw-semibold">
+                                    <span>@p.Name</span>
+                                    <span class="text-info">@p.CompletedTasks/@p.TotalTasks tasks</span>
+                                </div>
+                                <div class="progress mt-2" style="height:6px;background:rgba(255,255,255,0.08);">
+                                    <div class="progress-bar bg-info" style="width:@pct%"></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.querySelectorAll("canvas[data-chart]").forEach(canvas => {
+        try {
+            const cfg = JSON.parse(canvas.getAttribute("data-chart"));
+            window.renderFridayChart(canvas, cfg);
+        } catch {}
+    });
+</script>
+}
+

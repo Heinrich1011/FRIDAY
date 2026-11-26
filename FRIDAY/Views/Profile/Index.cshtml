@@ -1,0 +1,155 @@
+@model ProfileSettingsViewModel
+@{
+    ViewData["Title"] = "Profile & Privacy";
+}
+
+<div class="container py-4" style="max-width:980px;">
+    <h2 class="fw-bold mb-1">Personal Profile &amp; Privacy Controls</h2>
+    <p class="text-secondary small mb-4">
+        Nothing is hard-coded about you. Enter only what you want Friday to know, and manage your AI privacy boundaries here.
+    </p>
+
+    @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+    {
+        <div class="alert alert-info bg-info bg-opacity-10 border-info border-opacity-25 text-info small">
+            @Model.StatusMessage
+        </div>
+    }
+
+    <div class="row g-4">
+        <div class="col-12 col-lg-7">
+            <form asp-controller="Profile" asp-action="Save" method="post" class="friday-panel">
+                <h5 class="fw-bold mb-3">Personal Profile</h5>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label small text-secondary">Full Name</label>
+                        <input name="FullName" value="@Model.Profile.FullName" class="form-control form-control-sm" maxlength="150" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-secondary">Preferred Name</label>
+                        <input name="PreferredName" value="@Model.Profile.PreferredName" class="form-control form-control-sm" maxlength="80" placeholder="How Friday greets you" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-secondary">Birth Date (Private)</label>
+                        <input type="date" name="BirthDate" value="@Model.Profile.BirthDate?.ToString("yyyy-MM-dd")" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-secondary">Location</label>
+                        <input name="Location" value="@Model.Profile.Location" class="form-control form-control-sm" maxlength="150" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-secondary">Preferred Currency</label>
+                        <input name="CurrencyCode" value="@Model.Profile.CurrencyCode" class="form-control form-control-sm" maxlength="10" placeholder="USD / PHP / EUR" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-secondary">Occupation</label>
+                        <input name="Occupation" value="@Model.Profile.Occupation" class="form-control form-control-sm" maxlength="150" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-secondary">Education</label>
+                        <input name="Education" value="@Model.Profile.Education" class="form-control form-control-sm" maxlength="250" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small text-secondary">Skills</label>
+                        <input name="Skills" value="@Model.Profile.Skills" class="form-control form-control-sm" maxlength="1000" placeholder="e.g., C#, ASP.NET Core, SQL, System Design" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small text-secondary">Interests</label>
+                        <input name="Interests" value="@Model.Profile.Interests" class="form-control form-control-sm" maxlength="1000" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small text-secondary">Current Goals</label>
+                        <textarea name="Goals" rows="2" class="form-control form-control-sm" maxlength="2000">@Model.Profile.Goals</textarea>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small text-secondary">Assistant Preferences</label>
+                        <textarea name="Preferences" rows="2" class="form-control form-control-sm" maxlength="2000" placeholder="e.g., Prefer concise morning summaries and bulleted action items">@Model.Profile.Preferences</textarea>
+                    </div>
+
+                    <div class="col-12 pt-2 border-top border-secondary border-opacity-25">
+                        <div class="fw-semibold small mb-2">Sensitive Module AI Permissions</div>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="allowFinance" name="AllowFinanceContextInAi" value="true" @(Model.Profile.AllowFinanceContextInAi ? "checked" : "") />
+                            <label class="form-check-label small" for="allowFinance">Allow Friday AI tools to read my Finance/Expense records</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="allowHealth" name="AllowHealthContextInAi" value="true" @(Model.Profile.AllowHealthContextInAi ? "checked" : "") />
+                            <label class="form-check-label small" for="allowHealth">Allow Friday AI tools to summarize my Wellness records</label>
+                        </div>
+                    </div>
+
+                    <div class="col-12 pt-2">
+                        <button type="submit" class="btn btn-friday-send">Save Profile &amp; Privacy Settings</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="col-12 col-lg-5 d-flex flex-column gap-3">
+            <!-- Secure Groq Configuration Status -->
+            <div class="friday-panel">
+                <h6 class="fw-bold mb-2">Groq AI Server Configuration</h6>
+                <div class="d-flex justify-content-between small mb-1">
+                    <span class="text-secondary">API Key Status:</span>
+                    @if (Model.IsGroqConfigured)
+                    {
+                        <span class="text-success fw-semibold">Configured (Server-Side Only)</span>
+                    }
+                    else
+                    {
+                        <span class="text-warning fw-semibold">Not Set</span>
+                    }
+                </div>
+                <div class="d-flex flex-wrap justify-content-between gap-1 small mb-3">
+                    <span class="text-secondary">Configured Model:</span>
+                    <code style="word-break:break-word;">@Model.ConfiguredModel</code>
+                </div>
+                <div class="small text-secondary mb-1">Configure securely with User Secrets:</div>
+                <pre class="small p-2 rounded bg-dark border border-secondary border-opacity-25 text-info mb-0" style="font-size:0.76rem;white-space:pre-wrap;word-break:break-word;">dotnet user-secrets set "Groq:ApiKey" "YOUR_KEY" --project FRIDAY</pre>
+            </div>
+
+            <!-- File MCP Sandbox Boundaries -->
+            <div class="friday-panel">
+                <h6 class="fw-bold mb-2">Approved File MCP Directories</h6>
+                <p class="text-secondary small mb-2">Friday strictly rejects file operations outside these configured folders:</p>
+                <ul class="small text-light ps-3 mb-0">
+                    @foreach (var dir in Model.ApprovedDirectories)
+                    {
+                        <li><code style="overflow-wrap:anywhere;word-break:break-word;">@dir</code></li>
+                    }
+                </ul>
+            </div>
+
+            <!-- Data Portability, Health Purge & Optional Demo Seed -->
+            <div class="friday-panel">
+                <h6 class="fw-bold mb-2">Data Ownership &amp; Controls</h6>
+                <div class="d-grid gap-2">
+                    <a asp-controller="Profile" asp-action="ExportData" class="btn btn-sm btn-outline-info">
+                        Export All Personal Data (JSON)
+                    </a>
+
+                    <form asp-controller="Profile" asp-action="DeleteHealthData" method="post" onsubmit="return confirm('Permanently delete all stored health/wellness records?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger w-100">Purge All Wellness Records</button>
+                    </form>
+
+                    <hr class="border-secondary border-opacity-25 my-1" />
+                    <div class="small text-secondary">Optional Removable Development Demo Data:</div>
+                    @if (Model.HasDemoData)
+                    {
+                        <form asp-controller="Profile" asp-action="RemoveDemoData" method="post">
+                            <button type="submit" class="btn btn-sm btn-warning w-100">Remove All Marked [DEMO] Data</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <form asp-controller="Profile" asp-action="LoadDemoData" method="post">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100">Load Marked [DEMO] Sample Records</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

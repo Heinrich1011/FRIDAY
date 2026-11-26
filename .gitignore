@@ -1,0 +1,25 @@
+## Ignore Visual Studio temporary files, build results, and local state
+.vs/
+bin/
+obj/
+.packages/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Local SQLite Databases & Sensitive Data
+*.db
+*.db-shm
+*.db-wal
+**/App_Data/*.db*
+**/App_Data/Exports/
+**/App_Data/Reports/
+**/App_Data/DataProtectionKeys/
+
+## Local Secrets & Tooling Artifacts
+appsettings.Local.json
+secrets.json
+.env
+.agents/
+

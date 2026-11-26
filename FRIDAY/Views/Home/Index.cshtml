@@ -1,0 +1,860 @@
+﻿@using System.Text.Json
+@model ChatWorkspaceViewModel
+@{
+    ViewData["Title"] = "Friday Assistant";
+    var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+}
+
+@if (!Model.ActiveSessionId.HasValue)
+{
+    @await Html.PartialAsync("_WelcomeOverlay")
+}
+
+<div class="chat-layout">
+    <div class="chat-sidebar-backdrop d-lg-none" id="chatSidebarBackdrop" aria-hidden="true"></div>
+
+    <!-- Conversation History Sidebar -->
+    <aside class="chat-sidebar" id="chatSidebar">
+        <div class="d-flex d-lg-none align-items-center justify-content-between mb-2 pb-2 border-bottom border-secondary border-opacity-25">
+            <span class="small fw-bold text-info text-uppercase" style="letter-spacing:0.06em;">Conversations</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="closeSidebarBtn" aria-label="Close conversation history">&times;</button>
+        </div>
+
+        <div class="d-grid gap-2 mb-3">
+            <a asp-controller="Home" asp-action="Index" class="btn btn-sm btn-outline-light fw-semibold">
+                + New Conversation
+            </a>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between mb-2 px-1">
+            <span class="small text-uppercase text-secondary fw-semibold" style="font-size:0.72rem;letter-spacing:0.06em;">
+                Recent Conversations
+            </span>
+            <button type="button"
+                    class="session-menu-btn"
+                    id="recentHistoryMenuBtn"
+                    aria-label="Recent conversations options"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    title="History options"
+                    style="@(Model.RecentSessions.Count == 0 ? "display:none;" : "")">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                    <circle cx="8" cy="3" r="1.4" />
+                    <circle cx="8" cy="8" r="1.4" />
+                    <circle cx="8" cy="13" r="1.4" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="flex-grow-1 overflow-auto" id="sessionList">
+            @if (Model.RecentSessions.Count == 0)
+            {
+                <div class="text-secondary small px-2 py-2" id="emptySessionsHint">No saved conversations yet.</div>
+            }
+            else
+            {
+                foreach (var s in Model.RecentSessions)
+                {
+                    <div class="session-row @(Model.ActiveSessionId == s.Id ? "active" : "")" data-session-row="@s.Id">
+                        <a class="session-item"
+                           asp-controller="Home" asp-action="Index" asp-route-sessionId="@s.Id"
+                           title="@s.Title">
+                            @s.Title
+                        </a>
+                        <button type="button"
+                                class="session-menu-btn js-session-menu-btn"
+                                data-session-id="@s.Id"
+                                data-session-title="@s.Title"
+                                aria-label="Options for @s.Title"
+                                aria-haspopup="menu"
+                                aria-expanded="false">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                                <circle cx="8" cy="3" r="1.4" />
+                                <circle cx="8" cy="8" r="1.4" />
+                                <circle cx="8" cy="13" r="1.4" />
+                            </svg>
+                        </button>
+                    </div>
+                }
+            }
+        </div>
+
+        <div class="pt-3 mt-2 border-top border-secondary border-opacity-25 small text-secondary">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+                <span>Groq Reasoning</span>
+                @if (Model.IsGroqConfigured)
+                {
+                    <span class="badge bg-success bg-opacity-25 text-success">Ready</span>
+                }
+                else
+                {
+                    <a asp-controller="Profile" asp-action="Index" class="badge bg-warning bg-opacity-25 text-warning text-decoration-none">Setup Key</a>
+                }
+            </div>
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span>MCP Tools Active</span>
+                <span class="text-light fw-semibold">@Model.McpToolCount</span>
+            </div>
+            <div class="form-check form-switch mt-1">
+                <input class="form-check-input" type="checkbox" id="debugModeToggle" />
+                <label class="form-check-label" for="debugModeToggle" style="font-size:0.76rem;">Show debug MCP info</label>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Primary Friday Natural-Language Assistant Workspace -->
+    <section class="chat-stage">
+        <div class="chat-stage-header">
+            <div class="chat-stage-title-wrap d-flex align-items-center gap-2 min-w-0">
+                <button class="btn btn-sm btn-outline-secondary d-lg-none flex-shrink-0" type="button" id="mobileSidebarBtn" aria-label="Open recent conversations">
+                    Chats
+                </button>
+                <div class="min-w-0">
+                    <div class="fw-bold text-truncate" id="activeSessionHeading">@Model.ActiveSessionTitle</div>
+                    <div class="text-secondary d-none d-md-block" style="font-size:0.76rem;">
+                        Natural-language workspace across Tasks, Schedule, Notes, Projects, Finance, Wellness &amp; Approved Files
+                    </div>
+                </div>
+            </div>
+            <div class="chat-stage-actions d-flex align-items-center gap-2 flex-wrap">
+                <div class="friday-mode-switch" role="tablist" aria-label="Interaction mode">
+                    <button type="button"
+                            class="friday-mode-btn active"
+                            id="modeTextBtn"
+                            role="tab"
+                            aria-selected="true"
+                            aria-controls="chatMessages">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                            <path d="M2 2.5A1.5 1.5 0 0 1 3.5 1h9A1.5 1.5 0 0 1 14 2.5v7A1.5 1.5 0 0 1 12.5 11H6l-3 2.5V11h-.5A1.5 1.5 0 0 1 1 9.5v-7z" />
+                        </svg>
+                        <span>Text Chat</span>
+                    </button>
+                    <button type="button"
+                            class="friday-mode-btn"
+                            id="modeVoiceBtn"
+                            role="tab"
+                            aria-selected="false"
+                            aria-controls="voiceWorkspace">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                            <path d="M8 10a2.5 2.5 0 0 0 2.5-2.5V3.5a2.5 2.5 0 0 0-5 0v4A2.5 2.5 0 0 0 8 10" />
+                            <path d="M12.5 7.5a.5.5 0 0 1 1 0A5.5 5.5 0 0 1 8.5 13v2h2a.5.5 0 0 1 0 1h-5a.5.5 0 0 1 0-1h2v-2A5.5 5.5 0 0 1 2.5 7.5a.5.5 0 0 1 1 0 4.5 4.5 0 1 0 9 0" />
+                        </svg>
+                        <span>Voice Mode</span>
+                    </button>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" id="clearChatBtn" title="Clear this conversation">
+                    Clear<span class="d-none d-sm-inline"> Conversation</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages" data-session-id="@(Model.ActiveSessionId?.ToString() ?? "")">
+            @if (Model.Messages.Count == 0)
+            {
+                <div class="chat-welcome" id="chatWelcome">
+                    <div class="friday-hero-logo-wrap">
+                        <img src="~/images/friday-logo.jpg" alt="FRIDAY Personal AI Assistant logo" class="friday-hero-logo" asp-append-version="true" />
+                    </div>
+                    <h3 class="fw-bold mb-2">
+                        Hello@(string.IsNullOrWhiteSpace(Model.UserGreetingName) ? "" : $", {Model.UserGreetingName}"). I'm Friday.
+                    </h3>
+                    <p class="text-secondary mb-0">
+                        Ask me anything in plain English — I automatically select the right tools, check your SQLite records, and reason over your actual data without guessing.
+                    </p>
+                    @if (!Model.IsGroqConfigured)
+                    {
+                        <div class="alert alert-warning bg-warning bg-opacity-10 border-warning border-opacity-25 text-warning small mt-3 text-start">
+                            <strong>Groq API Key Required for Live Reasoning:</strong> Configure <code>Groq:ApiKey</code> via .NET User Secrets or the <code>Groq__ApiKey</code> environment variable. See <a asp-controller="Profile" asp-action="Index" class="text-warning fw-bold">Profile &amp; Privacy</a> for instructions.
+                        </div>
+                    }
+
+                    <div class="example-hint-list" aria-label="Example natural language prompts">
+                        <div class="example-hint-card" data-prompt="What should I prioritize today?">
+                            "What should I prioritize today?"
+                        </div>
+                        <div class="example-hint-card" data-prompt="Add a task to finish my OJT report tomorrow with high priority.">
+                            "Add a task to finish my OJT report tomorrow with high priority."
+                        </div>
+                        <div class="example-hint-card" data-prompt="What appointments do I have this week?">
+                            "What appointments do I have this week?"
+                        </div>
+                        <div class="example-hint-card" data-prompt="Show my spending by category this month.">
+                            "Show my spending by category this month."
+                        </div>
+                        <div class="example-hint-card" data-prompt="Find everything related to MCP across my workspace.">
+                            "Find everything related to MCP across my workspace."
+                        </div>
+                        <div class="example-hint-card" data-prompt="Create a weekly productivity report.">
+                            "Create a weekly productivity report."
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                for (int i = 0; i < Model.Messages.Count; i++)
+                {
+                    var m = Model.Messages[i];
+                    if (m.Role == "user")
+                    {
+                        <div class="msg-row user">
+                            <div class="msg-bubble">@m.Content</div>
+                        </div>
+                    }
+                    else
+                    {
+                        var chartId = $"hist_chart_{m.Id}";
+                        <div class="msg-row assistant">
+                            <div class="msg-avatar friday">
+                                <img src="~/images/friday-logo.jpg" alt="Friday" class="msg-avatar-img" asp-append-version="true" />
+                            </div>
+                            <div class="msg-bubble">
+                                @if (m.ActivitySummary.Count > 0)
+                                {
+                                    <div class="activity-pills">
+                                        @foreach (var act in m.ActivitySummary)
+                                        {
+                                            <span class="activity-pill">&#10003; @act</span>
+                                        }
+                                    </div>
+                                }
+                                <div class="md-content" data-raw-md="@m.Content"></div>
+                                @if (m.Table is not null)
+                                {
+                                    <div class="hydrated-table" data-table-json="@JsonSerializer.Serialize(m.Table, jsonOpts)"></div>
+                                }
+                                @if (m.Chart is not null)
+                                {
+                                    <div class="friday-chart-card">
+                                        <div class="friday-card-header">
+                                            <span>@m.Chart.Title</span>
+                                            <span class="text-secondary small">@m.Chart.SourceDescription</span>
+                                        </div>
+                                        <div class="chart-canvas-wrap">
+                                            <canvas id="@chartId" class="hydrated-chart" data-chart-json="@JsonSerializer.Serialize(m.Chart, jsonOpts)"></canvas>
+                                        </div>
+                                    </div>
+                                }
+                                @if (m.Report is not null)
+                                {
+                                    <div class="hydrated-report" data-report-json="@JsonSerializer.Serialize(m.Report, jsonOpts)"></div>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            }
+        </div>
+
+        <!-- Voice Interaction Panel (shares active session & orchestrator pipeline with Text Chat) -->
+        <div class="voice-workspace d-none" id="voiceWorkspace" data-voice-state="IDLE" role="tabpanel" aria-labelledby="modeVoiceBtn">
+            <div class="voice-core-card">
+                <div class="voice-status-badge" id="voiceStatusBadge" role="status" aria-live="polite">
+                    ● Ready
+                </div>
+                <div class="small text-secondary" id="voiceStatusSub">
+                    Press Start Listening or Space to speak to Friday.
+                </div>
+
+                <div class="voice-orb-stage" id="voiceOrbRing" data-voice-state="IDLE">
+                    <div class="voice-orb-halo" aria-hidden="true"></div>
+                    <img src="~/images/friday-logo.jpg" alt="FRIDAY Voice Assistant" class="voice-orb-avatar" asp-append-version="true" />
+                </div>
+
+                <div class="voice-visualizer-wrap">
+                    <canvas id="voiceVisualizerCanvas" class="voice-visualizer-canvas" aria-label="Voice activity visualizer"></canvas>
+                    <span class="voice-telemetry-label" id="voiceTelemetryBadge">Standby Visualizer</span>
+                </div>
+
+                <div class="voice-controls-row">
+                    <button type="button" class="voice-primary-btn" id="voiceMicBtn" aria-pressed="false" aria-label="Start or stop microphone listening">
+                        <svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                            <path d="M8 10a2.5 2.5 0 0 0 2.5-2.5V3.5a2.5 2.5 0 0 0-5 0v4A2.5 2.5 0 0 0 8 10" />
+                            <path d="M12.5 7.5a.5.5 0 0 1 1 0A5.5 5.5 0 0 1 8.5 13v2h2a.5.5 0 0 1 0 1h-5a.5.5 0 0 1 0-1h2v-2A5.5 5.5 0 0 1 2.5 7.5a.5.5 0 0 1 1 0 4.5 4.5 0 1 0 9 0" />
+                        </svg>
+                        <span id="voiceMicBtnLabel">Start Listening</span>
+                    </button>
+
+                    <button type="button" class="voice-stop-btn d-none" id="voiceStopSpeakingBtn" aria-label="Stop Friday from speaking">
+                        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                            <rect x="3" y="3" width="10" height="10" rx="1.5" />
+                        </svg>
+                        <span>Stop Speaking</span>
+                    </button>
+
+                    <button type="button" class="btn btn-sm btn-outline-info" id="voiceReplayBtn" disabled title="Replay Friday's latest spoken reply">
+                        Replay Audio
+                    </button>
+                </div>
+
+                <div class="alert alert-danger bg-danger bg-opacity-10 border-danger border-opacity-50 text-light small mt-3 mb-0 w-100 d-none" id="voiceErrorBanner" role="alert">
+                    <span id="voiceErrorText"></span>
+                </div>
+
+                <div class="alert alert-info bg-info bg-opacity-10 border-info border-opacity-25 text-info small mt-3 mb-0 w-100 d-none" id="voiceCompatibilityHint"></div>
+            </div>
+
+            <div class="voice-panels-grid">
+                <div class="voice-io-card">
+                    <div class="voice-io-label">You (Transcript)</div>
+                    <div class="voice-transcript-text text-secondary" id="voiceTranscriptText" aria-live="polite">
+                        Waiting for your voice command...
+                    </div>
+                </div>
+
+                <div class="voice-io-card">
+                    <div class="voice-io-label">FRIDAY Response</div>
+                    <div class="md-content" id="voiceResponseText" aria-live="polite">
+                        <span class="text-secondary small">Ask a question using your voice — your full conversation context carries over from Text Chat.</span>
+                    </div>
+                    <div id="voiceResponseArtifacts"></div>
+                </div>
+            </div>
+
+            <div class="voice-settings-bar">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <label for="voicePreferenceSelect" class="fw-semibold text-light mb-0">FRIDAY Voice:</label>
+                    <select id="voicePreferenceSelect" class="form-select form-select-sm w-auto" aria-label="FRIDAY voice selection">
+                        <option value="female" selected>Female Voice (Auto)</option>
+                        <option value="default">System Default Voice</option>
+                    </select>
+                    <span class="text-secondary small" id="voiceActiveNameLabel">Voice: Selecting...</span>
+                </div>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="voiceContinuousToggle" />
+                    <label class="form-check-label" for="voiceContinuousToggle">Continue listening after reply</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-composer-wrap" id="chatComposerWrap">
+            <form id="fridayChatForm" class="chat-composer" autocomplete="off">
+                <textarea id="fridayInput"
+                          class="chat-input"
+                          rows="1"
+                          maxlength="4000"
+                          placeholder="Message Friday... (e.g., 'What do I need to finish today?' or 'Summarize my week')"
+                          aria-label="Message Friday"></textarea>
+                <button type="submit" id="fridaySendBtn" class="btn-friday-send">Send</button>
+            </form>
+        </div>
+    </section>
+</div>
+
+<!-- Shared 3-dots Floating Context Menu -->
+<div class="friday-context-menu" id="sessionContextMenu" role="menu" aria-hidden="true">
+    <button type="button" class="friday-context-item danger" id="contextMenuDeleteBtn" role="menuitem">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z" />
+            <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z" />
+        </svg>
+        <span id="contextMenuDeleteLabel">Delete conversation</span>
+    </button>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="fridayDeleteModal" tabindex="-1" aria-labelledby="fridayDeleteModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content" style="background:var(--friday-surface);border:1px solid var(--friday-border);color:var(--friday-text);">
+            <div class="modal-header border-secondary border-opacity-25 py-2 px-3">
+                <h6 class="modal-title fw-bold" id="fridayDeleteModalTitle">Delete conversation</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body small text-secondary py-3 px-3" id="fridayDeleteModalBody">
+                Are you sure you want to delete this conversation?
+            </div>
+            <div class="modal-footer border-secondary border-opacity-25 py-2 px-3">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm btn-danger" id="confirmDeleteModalBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="~/js/voice-interfaces.js" asp-append-version="true"></script>
+<script src="~/js/friday-voice-controller.js" asp-append-version="true"></script>
+<script src="~/js/friday-welcome.js" asp-append-version="true"></script>
+<script>
+(function () {
+    const messagesEl = document.getElementById("chatMessages");
+    const chatComposerWrap = document.getElementById("chatComposerWrap");
+    const formEl = document.getElementById("fridayChatForm");
+    const inputEl = document.getElementById("fridayInput");
+    const sendBtn = document.getElementById("fridaySendBtn");
+    const clearBtn = document.getElementById("clearChatBtn");
+    const debugToggle = document.getElementById("debugModeToggle");
+    const mobileSidebarBtn = document.getElementById("mobileSidebarBtn");
+    const closeSidebarBtn = document.getElementById("closeSidebarBtn");
+    const sidebarBackdropEl = document.getElementById("chatSidebarBackdrop");
+    const sidebarEl = document.getElementById("chatSidebar");
+    const sessionListEl = document.getElementById("sessionList");
+    const recentHistoryMenuBtn = document.getElementById("recentHistoryMenuBtn");
+    const contextMenuEl = document.getElementById("sessionContextMenu");
+    const contextDeleteBtn = document.getElementById("contextMenuDeleteBtn");
+    const contextDeleteLabel = document.getElementById("contextMenuDeleteLabel");
+    const deleteModalEl = document.getElementById("fridayDeleteModal");
+    const deleteModalTitleEl = document.getElementById("fridayDeleteModalTitle");
+    const deleteModalBodyEl = document.getElementById("fridayDeleteModalBody");
+    const confirmDeleteModalBtn = document.getElementById("confirmDeleteModalBtn");
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
+
+    let currentSessionId = messagesEl.getAttribute("data-session-id") || null;
+    let latestAssistantPayload = null;
+    let activeMenuTrigger = null;
+    let pendingDeleteTarget = null; // { mode: 'single' | 'all', sessionId?: string, sessionTitle?: string }
+    const deleteModalInstance = (deleteModalEl && typeof bootstrap !== "undefined")
+        ? new bootstrap.Modal(deleteModalEl)
+        : null;
+
+    // Hydrate server-rendered markdown, tables, charts, and reports
+    document.querySelectorAll(".md-content[data-raw-md]").forEach(el => {
+        el.innerHTML = window.renderSafeMarkdown(el.getAttribute("data-raw-md"));
+    });
+    document.querySelectorAll(".hydrated-table[data-table-json]").forEach(el => {
+        try { el.outerHTML = window.buildTableHtml(JSON.parse(el.getAttribute("data-table-json"))); } catch {}
+    });
+    document.querySelectorAll(".hydrated-report[data-report-json]").forEach(el => {
+        try { el.outerHTML = window.buildReportHtml(JSON.parse(el.getAttribute("data-report-json"))); } catch {}
+    });
+    document.querySelectorAll("canvas.hydrated-chart[data-chart-json]").forEach(canvas => {
+        try { window.renderFridayChart(canvas, JSON.parse(canvas.getAttribute("data-chart-json"))); } catch {}
+    });
+
+    function scrollToBottom() {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+    scrollToBottom();
+
+    function setMobileSidebarOpen(open) {
+        if (!sidebarEl) return;
+        sidebarEl.classList.toggle("mobile-open", Boolean(open));
+        sidebarBackdropEl?.classList.toggle("open", Boolean(open));
+    }
+
+    mobileSidebarBtn?.addEventListener("click", () => {
+        setMobileSidebarOpen(!sidebarEl.classList.contains("mobile-open"));
+    });
+    closeSidebarBtn?.addEventListener("click", () => setMobileSidebarOpen(false));
+    sidebarBackdropEl?.addEventListener("click", () => setMobileSidebarOpen(false));
+
+    // Auto-grow textarea & Enter to send
+    inputEl.addEventListener("input", () => {
+        inputEl.style.height = "auto";
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 150) + "px";
+    });
+    inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            formEl.requestSubmit();
+        }
+    });
+
+    // Clicking an example natural-language prompt populates & submits
+    document.querySelectorAll(".example-hint-card[data-prompt]").forEach(card => {
+        card.addEventListener("click", () => {
+            inputEl.value = card.getAttribute("data-prompt");
+            formEl.requestSubmit();
+        });
+    });
+
+    async function sendPromptText(promptText, options = {}) {
+        const inputMode = options.inputMode === "voice" ? "voice" : "text";
+        const welcome = document.getElementById("chatWelcome");
+        if (welcome) welcome.remove();
+
+        // Append user bubble
+        const userRow = document.createElement("div");
+        userRow.className = "msg-row user";
+        const userBubble = document.createElement("div");
+        userBubble.className = "msg-bubble";
+        userBubble.textContent = promptText;
+        userRow.appendChild(userBubble);
+        messagesEl.appendChild(userRow);
+
+        // Append loading bubble
+        const loadingRow = document.createElement("div");
+        loadingRow.className = "msg-row assistant";
+        loadingRow.innerHTML = `
+            <div class="msg-avatar friday">
+                <img src="/images/friday-logo.jpg" alt="Friday" class="msg-avatar-img" />
+            </div>
+            <div class="msg-bubble">
+                <div class="d-flex align-items-center gap-2 text-secondary small">
+                    <span class="typing-dots"><span></span><span></span><span></span></span>
+                    <span>Friday is thinking...</span>
+                </div>
+            </div>`;
+        messagesEl.appendChild(loadingRow);
+        scrollToBottom();
+
+        sendBtn.disabled = true;
+        inputEl.disabled = true;
+
+        try {
+            const resp = await fetch("/api/chat/send", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": csrfToken
+                },
+                body: JSON.stringify({
+                    sessionId: currentSessionId ? currentSessionId : null,
+                    message: promptText,
+                    clientTimezoneOffsetMinutes: -new Date().getTimezoneOffset(),
+                    debugMode: Boolean(debugToggle?.checked),
+                    inputMode: inputMode
+                })
+            });
+
+            if (!resp.ok) {
+                throw new Error(`HTTP_${resp.status}`);
+            }
+
+            const data = await resp.json();
+            loadingRow.remove();
+
+            if (data.sessionId) {
+                currentSessionId = data.sessionId;
+                messagesEl.setAttribute("data-session-id", currentSessionId);
+                if (data.sessionTitle) {
+                    document.getElementById("activeSessionHeading").textContent = data.sessionTitle;
+                }
+                ensureSidebarSessionRow(currentSessionId, data.sessionTitle || promptText);
+                const url = new URL(window.location.href);
+                url.searchParams.set("sessionId", currentSessionId);
+                window.history.replaceState({}, "", url.toString());
+            }
+
+            latestAssistantPayload = data;
+            appendAssistantResponse(data);
+            return data;
+        } catch {
+            loadingRow.remove();
+            const errPayload = {
+                isError: true,
+                message: "Friday is temporarily unable to process that request.",
+                spokenSummary: "Friday couldn't process that request right now."
+            };
+            latestAssistantPayload = errPayload;
+            appendAssistantResponse(errPayload);
+            return errPayload;
+        } finally {
+            sendBtn.disabled = false;
+            inputEl.disabled = false;
+            if (inputMode === "text" && !chatComposerWrap?.classList.contains("d-none")) {
+                inputEl.focus();
+            }
+            scrollToBottom();
+        }
+    }
+
+    function appendAssistantResponse(data) {
+        const row = document.createElement("div");
+        row.className = "msg-row assistant";
+
+        const chartCanvasId = "dyn_chart_" + Math.random().toString(36).substring(2, 9);
+        let pillsHtml = "";
+        if (Array.isArray(data.activitySummary) && data.activitySummary.length > 0) {
+            pillsHtml = `<div class="activity-pills">` +
+                data.activitySummary.map(s => `<span class="activity-pill">&#10003; ${s.replace(/</g, "&lt;")}</span>`).join("") +
+                `</div>`;
+        }
+
+        let debugHtml = "";
+        if (Array.isArray(data.debugToolsCalled) && data.debugToolsCalled.length > 0) {
+            debugHtml = `<div class="small text-secondary mb-2"><code>MCP: ${data.debugToolsCalled.join(", ")} | CorrId: ${data.correlationId || ""}</code></div>`;
+        }
+
+        let chartHtml = "";
+        if (data.chart && Array.isArray(data.chart.datasets) && data.chart.datasets.length > 0) {
+            const cTitle = (data.chart.title || "Chart").replace(/</g, "&lt;");
+            const cSrc = (data.chart.sourceDescription || "").replace(/</g, "&lt;");
+            chartHtml = `
+                <div class="friday-chart-card">
+                    <div class="friday-card-header">
+                        <span>${cTitle}</span>
+                        <span class="text-secondary small">${cSrc}</span>
+                    </div>
+                    <div class="chart-canvas-wrap">
+                        <canvas id="${chartCanvasId}"></canvas>
+                    </div>
+                </div>`;
+        }
+
+        let confirmHtml = "";
+        if (data.pendingConfirmation) {
+            confirmHtml = `
+                <div class="friday-confirm-card p-3 border-warning border-opacity-50">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                        <span class="small text-warning fw-semibold">Confirmation required before deleting record</span>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-danger js-confirm-action" data-reply="Yes">Yes, Delete</button>
+                            <button type="button" class="btn btn-sm btn-outline-light js-confirm-action" data-reply="Cancel">Cancel</button>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        row.innerHTML = `
+            <div class="msg-avatar friday">
+                <img src="/images/friday-logo.jpg" alt="Friday" class="msg-avatar-img" />
+            </div>
+            <div class="msg-bubble ${data.isError ? "error-bubble" : ""}">
+                ${pillsHtml}
+                ${debugHtml}
+                <div class="md-content">${window.renderSafeMarkdown(data.message || "")}</div>
+                ${window.buildTableHtml(data.table)}
+                ${chartHtml}
+                ${window.buildReportHtml(data.report)}
+                ${confirmHtml}
+            </div>`;
+
+        messagesEl.appendChild(row);
+
+        if (chartHtml) {
+            const canvas = document.getElementById(chartCanvasId);
+            window.renderFridayChart(canvas, data.chart);
+        }
+
+        row.querySelectorAll(".js-confirm-action").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const reply = btn.getAttribute("data-reply");
+                btn.closest(".friday-confirm-card").remove();
+                sendPromptText(reply);
+            });
+        });
+    }
+
+    formEl.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const text = inputEl.value.trim();
+        if (!text) return;
+        inputEl.value = "";
+        inputEl.style.height = "auto";
+        await sendPromptText(text);
+    });
+
+    clearBtn?.addEventListener("click", () => {
+        if (!currentSessionId) {
+            window.location.href = "/";
+            return;
+        }
+        const activeTitle = document.getElementById("activeSessionHeading")?.textContent || "this conversation";
+        promptDeleteConfirmation({ mode: "single", sessionId: currentSessionId, sessionTitle: activeTitle });
+    });
+
+    function ensureSidebarSessionRow(sessionId, title) {
+        if (!sessionListEl || !sessionId) return;
+        const emptyHint = document.getElementById("emptySessionsHint");
+        if (emptyHint) emptyHint.remove();
+        if (recentHistoryMenuBtn) recentHistoryMenuBtn.style.display = "inline-flex";
+
+        sessionListEl.querySelectorAll(".session-row").forEach(r => {
+            r.classList.toggle("active", r.getAttribute("data-session-row") === sessionId);
+        });
+
+        if (sessionListEl.querySelector(`[data-session-row="${CSS.escape(sessionId)}"]`)) {
+            return;
+        }
+
+        const row = document.createElement("div");
+        row.className = "session-row active";
+        row.setAttribute("data-session-row", sessionId);
+
+        const link = document.createElement("a");
+        link.className = "session-item";
+        link.href = `/?sessionId=${encodeURIComponent(sessionId)}`;
+        link.title = title || "Conversation";
+        link.textContent = title || "Conversation";
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "session-menu-btn js-session-menu-btn";
+        btn.setAttribute("data-session-id", sessionId);
+        btn.setAttribute("data-session-title", title || "Conversation");
+        btn.setAttribute("aria-label", `Options for ${title || "Conversation"}`);
+        btn.setAttribute("aria-haspopup", "menu");
+        btn.setAttribute("aria-expanded", "false");
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="3" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="8" cy="13" r="1.4"/></svg>`;
+
+        row.appendChild(link);
+        row.appendChild(btn);
+        sessionListEl.prepend(row);
+    }
+
+    function closeContextMenu() {
+        if (!contextMenuEl) return;
+        contextMenuEl.classList.remove("open");
+        contextMenuEl.setAttribute("aria-hidden", "true");
+        if (activeMenuTrigger) {
+            activeMenuTrigger.setAttribute("aria-expanded", "false");
+            activeMenuTrigger = null;
+        }
+    }
+
+    function openContextMenu(triggerBtn, targetInfo) {
+        if (!contextMenuEl) return;
+        if (activeMenuTrigger === triggerBtn && contextMenuEl.classList.contains("open")) {
+            closeContextMenu();
+            return;
+        }
+
+        closeContextMenu();
+        activeMenuTrigger = triggerBtn;
+        activeMenuTrigger.setAttribute("aria-expanded", "true");
+        pendingDeleteTarget = targetInfo;
+
+        contextDeleteLabel.textContent = targetInfo.mode === "all"
+            ? "Delete all chat history"
+            : "Delete chat";
+
+        contextMenuEl.classList.add("open");
+        contextMenuEl.setAttribute("aria-hidden", "false");
+
+        const rect = triggerBtn.getBoundingClientRect();
+        const menuW = contextMenuEl.offsetWidth || 185;
+        const menuH = contextMenuEl.offsetHeight || 44;
+
+        let left = Math.min(rect.right - menuW, window.innerWidth - menuW - 12);
+        left = Math.max(12, left);
+        let top = rect.bottom + 4;
+        if (top + menuH > window.innerHeight - 12) {
+            top = Math.max(12, rect.top - menuH - 4);
+        }
+
+        contextMenuEl.style.left = `${left}px`;
+        contextMenuEl.style.top = `${top}px`;
+    }
+
+    function promptDeleteConfirmation(targetInfo) {
+        pendingDeleteTarget = targetInfo;
+        if (!deleteModalInstance) {
+            const msg = targetInfo.mode === "all"
+                ? "Delete all recent conversations?"
+                : `Delete "${targetInfo.sessionTitle || "this conversation"}"?`;
+            if (confirm(msg)) executePendingDeletion();
+            return;
+        }
+
+        if (targetInfo.mode === "all") {
+            deleteModalTitleEl.textContent = "Delete all chat history";
+            deleteModalBodyEl.textContent = "This will permanently delete all recent conversations and their messages. Your tasks, notes, schedule, and profile will not be affected.";
+        } else {
+            deleteModalTitleEl.textContent = "Delete conversation";
+            deleteModalBodyEl.textContent = `Permanently delete "${targetInfo.sessionTitle || "this conversation"}" from your history?`;
+        }
+        deleteModalInstance.show();
+    }
+
+    async function executePendingDeletion() {
+        if (!pendingDeleteTarget) return;
+        const target = pendingDeleteTarget;
+        pendingDeleteTarget = null;
+
+        if (target.mode === "all") {
+            const resp = await fetch("/api/chat/clear-all", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": csrfToken
+                }
+            });
+            if (resp.ok) {
+                window.location.href = "/";
+            }
+            return;
+        }
+
+        const resp = await fetch(`/api/chat/sessions/${encodeURIComponent(target.sessionId)}`, {
+            method: "DELETE",
+            headers: {
+                "X-CSRF-TOKEN": csrfToken
+            }
+        });
+
+        if (!resp.ok) return;
+
+        if (currentSessionId && currentSessionId.toLowerCase() === String(target.sessionId).toLowerCase()) {
+            window.location.href = "/";
+            return;
+        }
+
+        const rowEl = sessionListEl?.querySelector(`[data-session-row="${CSS.escape(target.sessionId)}"]`);
+        rowEl?.remove();
+
+        if (sessionListEl && sessionListEl.querySelectorAll(".session-row").length === 0) {
+            sessionListEl.innerHTML = '<div class="text-secondary small px-2 py-2" id="emptySessionsHint">No saved conversations yet.</div>';
+            if (recentHistoryMenuBtn) recentHistoryMenuBtn.style.display = "none";
+        }
+    }
+
+    sessionListEl?.addEventListener("click", (e) => {
+        const btn = e.target.closest(".js-session-menu-btn");
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openContextMenu(btn, {
+            mode: "single",
+            sessionId: btn.getAttribute("data-session-id"),
+            sessionTitle: btn.getAttribute("data-session-title")
+        });
+    });
+
+    recentHistoryMenuBtn?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openContextMenu(recentHistoryMenuBtn, { mode: "all" });
+    });
+
+    contextDeleteBtn?.addEventListener("click", () => {
+        const target = pendingDeleteTarget;
+        closeContextMenu();
+        if (target) promptDeleteConfirmation(target);
+    });
+
+    confirmDeleteModalBtn?.addEventListener("click", async () => {
+        confirmDeleteModalBtn.disabled = true;
+        try {
+            await executePendingDeletion();
+        } finally {
+            confirmDeleteModalBtn.disabled = false;
+            deleteModalInstance?.hide();
+        }
+    });
+
+    document.addEventListener("click", (e) => {
+        if (contextMenuEl && !contextMenuEl.contains(e.target) && !e.target.closest(".session-menu-btn")) {
+            closeContextMenu();
+        }
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            closeContextMenu();
+            setMobileSidebarOpen(false);
+        }
+    });
+
+    sessionListEl?.addEventListener("scroll", closeContextMenu);
+
+    window.fridayChatBridge = {
+        sendPrompt: (text, opts) => sendPromptText(text, opts),
+        getSessionId: () => currentSessionId,
+        getLatestAssistantMessage: () => {
+            if (latestAssistantPayload) return latestAssistantPayload;
+            const rawEls = messagesEl.querySelectorAll(".msg-row.assistant .md-content[data-raw-md]");
+            if (rawEls.length > 0) {
+                const lastEl = rawEls[rawEls.length - 1];
+                return { message: lastEl.getAttribute("data-raw-md") || "" };
+            }
+            return null;
+        }
+    };
+
+    if (typeof window.initFridayVoiceController === "function") {
+        window.fridayVoiceController = window.initFridayVoiceController(window.fridayChatBridge);
+    }
+})();
+</script>
+}

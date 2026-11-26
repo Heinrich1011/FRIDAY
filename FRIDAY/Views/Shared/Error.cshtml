@@ -1,0 +1,16 @@
+﻿@model ErrorViewModel
+@{
+    ViewData["Title"] = "Error";
+}
+
+<div class="container py-5" style="max-width:640px;">
+    <div class="friday-panel border-danger border-opacity-50 text-center">
+        <h4 class="fw-bold text-danger mb-2">Something went wrong</h4>
+        <p class="text-secondary mb-3">Friday encountered an unexpected error while processing your request. No sensitive details were exposed.</p>
+        @if (Model.ShowRequestId)
+        {
+            <p class="small text-secondary mb-3">Correlation ID: <code>@Model.RequestId</code></p>
+        }
+        <a asp-controller="Home" asp-action="Index" class="btn btn-sm btn-friday-send text-decoration-none">Return to Friday</a>
+    </div>
+</div>

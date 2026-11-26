@@ -1,0 +1,378 @@
+@model WorkspaceIndexViewModel
+@{
+    ViewData["Title"] = "Records Workspace";
+    var tab = Model.ActiveTab;
+}
+
+<div class="container-fluid px-3 px-lg-4 py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h3 class="fw-bold mb-0">Manual Records Browser</h3>
+            <p class="text-secondary small mb-0">Browse or manage SQLite data directly, or simply ask <a asp-controller="Home" asp-action="Index" class="text-info">Friday AI</a> in natural language.</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+    {
+        <div class="alert alert-info bg-info bg-opacity-10 border-info border-opacity-25 text-info small py-2">@Model.StatusMessage</div>
+    }
+
+    <ul class="nav nav-pills gap-1 mb-4">
+        <li class="nav-item"><a class="friday-nav-link @(tab == "tasks" ? "active" : "")" asp-action="Index" asp-route-tab="tasks">Tasks (@Model.Tasks.Count)</a></li>
+        <li class="nav-item"><a class="friday-nav-link @(tab == "projects" ? "active" : "")" asp-action="Index" asp-route-tab="projects">Projects (@Model.Projects.Count)</a></li>
+        <li class="nav-item"><a class="friday-nav-link @(tab == "schedule" ? "active" : "")" asp-action="Index" asp-route-tab="schedule">Schedule (@Model.Events.Count)</a></li>
+        <li class="nav-item"><a class="friday-nav-link @(tab == "notes" ? "active" : "")" asp-action="Index" asp-route-tab="notes">Notes (@Model.Notes.Count)</a></li>
+        <li class="nav-item"><a class="friday-nav-link @(tab == "finance" ? "active" : "")" asp-action="Index" asp-route-tab="finance">Finance (@Model.Expenses.Count)</a></li>
+        <li class="nav-item"><a class="friday-nav-link @(tab == "health" ? "active" : "")" asp-action="Index" asp-route-tab="health">Wellness (@Model.HealthRecords.Count)</a></li>
+    </ul>
+
+    @if (tab == "tasks")
+    {
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <form asp-action="CreateTask" method="post" class="friday-panel">
+                    <h6 class="fw-bold mb-3">Quick Add Task</h6>
+                    <div class="mb-2">
+                        <input name="title" required class="form-control form-control-sm" placeholder="Task title..." />
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-12 col-sm-6">
+                            <select name="priority" class="form-select form-select-sm">
+                                <option value="Medium">Medium Priority</option>
+                                <option value="High">High Priority</option>
+                                <option value="Critical">Critical Priority</option>
+                                <option value="Low">Low Priority</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <input type="datetime-local" name="dueDate" class="form-control form-control-sm" />
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-12 col-sm-6">
+                            <input name="category" class="form-control form-control-sm" placeholder="Category (optional)" />
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <select name="projectId" class="form-select form-select-sm">
+                                <option value="">No Project</option>
+                                @foreach (var p in Model.Projects)
+                                {
+                                    <option value="@p.Id">@p.Name</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-friday-send w-100">Add Task</button>
+                </form>
+            </div>
+            <div class="col-lg-8">
+                <div class="friday-panel">
+                    <h6 class="fw-bold mb-3">Stored Tasks</h6>
+                    @if (Model.Tasks.Count == 0)
+                    {
+                        <p class="text-secondary small mb-0">No tasks in SQLite yet.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="friday-data-table">
+                                <thead><tr><th>Done</th><th>Title</th><th>Priority</th><th>Due</th><th>Project</th><th></th></tr></thead>
+                                <tbody>
+                                    @foreach (var t in Model.Tasks)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <form asp-action="ToggleTask" method="post" class="d-inline">
+                                                    <input type="hidden" name="id" value="@t.Id" />
+                                                    <button type="submit" class="btn btn-sm @(t.Status == TaskItemStatus.Completed ? "btn-success" : "btn-outline-secondary") py-0 px-2">&#10003;</button>
+                                                </form>
+                                            </td>
+                                            <td class="@(t.Status == TaskItemStatus.Completed ? "text-decoration-line-through text-secondary" : "")">@t.Title</td>
+                                            <td>@t.Priority</td>
+                                            <td>@(t.DueDate?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                                            <td>@(t.Project?.Name ?? "-")</td>
+                                            <td>
+                                                <form asp-action="DeleteTask" method="post" onsubmit="return confirm('Delete this task?');" class="d-inline">
+                                                    <input type="hidden" name="id" value="@t.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2">&times;</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else if (tab == "projects")
+    {
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <form asp-action="CreateProject" method="post" class="friday-panel">
+                    <h6 class="fw-bold mb-3">Create Project</h6>
+                    <input name="name" required class="form-control form-control-sm mb-2" placeholder="Project name..." />
+                    <textarea name="description" rows="2" class="form-control form-control-sm mb-2" placeholder="Description..."></textarea>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <select name="priority" class="form-select form-select-sm">
+                                <option value="Medium">Medium</option>
+                                <option value="High">High</option>
+                                <option value="Critical">Critical</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <input type="date" name="targetDate" class="form-control form-control-sm" />
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-friday-send w-100">Create Project</button>
+                </form>
+            </div>
+            <div class="col-lg-8">
+                <div class="friday-panel">
+                    <h6 class="fw-bold mb-3">Projects</h6>
+                    @if (Model.Projects.Count == 0)
+                    {
+                        <p class="text-secondary small mb-0">No projects stored yet.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="friday-data-table">
+                                <thead><tr><th>Name</th><th>Status</th><th>Priority</th><th>Tasks</th><th>Target Date</th></tr></thead>
+                                <tbody>
+                                    @foreach (var p in Model.Projects)
+                                    {
+                                        <tr>
+                                            <td class="fw-semibold">@p.Name</td>
+                                            <td>@p.Status</td>
+                                            <td>@p.Priority</td>
+                                            <td>@p.Tasks.Count(t => t.Status == TaskItemStatus.Completed) / @p.Tasks.Count</td>
+                                            <td>@(p.TargetDate?.ToLocalTime().ToString("yyyy-MM-dd") ?? "-")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else if (tab == "schedule")
+    {
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <form asp-action="CreateEvent" method="post" class="friday-panel">
+                    <h6 class="fw-bold mb-3">Add Event</h6>
+                    <input name="title" required class="form-control form-control-sm mb-2" placeholder="Event title..." />
+                    <label class="small text-secondary">Start</label>
+                    <input type="datetime-local" name="startDateTime" required class="form-control form-control-sm mb-2" />
+                    <label class="small text-secondary">End (optional)</label>
+                    <input type="datetime-local" name="endDateTime" class="form-control form-control-sm mb-2" />
+                    <input name="location" class="form-control form-control-sm mb-2" placeholder="Location..." />
+                    <input name="category" class="form-control form-control-sm mb-3" placeholder="Category (Meeting, Class...)" />
+                    <button type="submit" class="btn btn-sm btn-friday-send w-100">Save Event</button>
+                </form>
+            </div>
+            <div class="col-lg-8">
+                <div class="friday-panel">
+                    <h6 class="fw-bold mb-3">Scheduled Events</h6>
+                    @if (Model.Events.Count == 0)
+                    {
+                        <p class="text-secondary small mb-0">No events scheduled yet.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="friday-data-table">
+                                <thead><tr><th>Title</th><th>Start</th><th>End</th><th>Location</th><th>Category</th></tr></thead>
+                                <tbody>
+                                    @foreach (var e in Model.Events)
+                                    {
+                                        <tr>
+                                            <td class="fw-semibold">@e.Title</td>
+                                            <td>@e.StartDateTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                            <td>@(e.EndDateTime?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                                            <td>@(e.Location ?? "-")</td>
+                                            <td>@(e.Category ?? "-")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else if (tab == "notes")
+    {
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <form asp-action="CreateNote" method="post" class="friday-panel">
+                    <h6 class="fw-bold mb-3">New Note</h6>
+                    <input name="title" required class="form-control form-control-sm mb-2" placeholder="Note title..." />
+                    <textarea name="content" required rows="5" class="form-control form-control-sm mb-2" placeholder="Write your note..."></textarea>
+                    <input name="category" class="form-control form-control-sm mb-2" placeholder="Category..." />
+                    <input name="tags" class="form-control form-control-sm mb-3" placeholder="Tags (comma-separated)..." />
+                    <button type="submit" class="btn btn-sm btn-friday-send w-100">Save Note</button>
+                </form>
+            </div>
+            <div class="col-lg-8">
+                <div class="friday-panel">
+                    <h6 class="fw-bold mb-3">Saved Notes</h6>
+                    @if (Model.Notes.Count == 0)
+                    {
+                        <p class="text-secondary small mb-0">No notes saved yet.</p>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-column gap-2">
+                            @foreach (var n in Model.Notes)
+                            {
+                                <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="fw-bold">@n.Title</span>
+                                        <span class="text-secondary small">@n.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                                    </div>
+                                    <div class="small text-light mt-1" style="white-space:pre-wrap;">@n.Content</div>
+                                    @if (!string.IsNullOrWhiteSpace(n.Tags))
+                                    {
+                                        <div class="small text-info mt-1">Tags: @n.Tags</div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else if (tab == "finance")
+    {
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <form asp-action="AddExpense" method="post" class="friday-panel">
+                    <h6 class="fw-bold mb-3">Record Expense (@Model.CurrencyCode)</h6>
+                    <input type="number" step="0.01" min="0.01" name="amount" required class="form-control form-control-sm mb-2" placeholder="Amount" />
+                    <input name="category" required class="form-control form-control-sm mb-2" placeholder="Category (Transportation, Food...)" />
+                    <input name="description" class="form-control form-control-sm mb-2" placeholder="Description" />
+                    <div class="row g-2 mb-3">
+                        <div class="col-6"><input type="date" name="date" class="form-control form-control-sm" /></div>
+                        <div class="col-6"><input name="paymentMethod" class="form-control form-control-sm" placeholder="Cash / Card" /></div>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-friday-send w-100">Record Expense</button>
+                </form>
+            </div>
+            <div class="col-lg-8">
+                <div class="friday-panel">
+                    <h6 class="fw-bold mb-3">Stored Expenses</h6>
+                    @if (Model.Expenses.Count == 0)
+                    {
+                        <p class="text-secondary small mb-0">No expenses recorded yet.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="friday-data-table">
+                                <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Method</th><th>Amount (@Model.CurrencyCode)</th></tr></thead>
+                                <tbody>
+                                    @foreach (var x in Model.Expenses)
+                                    {
+                                        <tr>
+                                            <td>@x.Date.ToLocalTime().ToString("yyyy-MM-dd")</td>
+                                            <td>@x.Category</td>
+                                            <td>@(x.Description ?? "-")</td>
+                                            <td>@(x.PaymentMethod ?? "-")</td>
+                                            <td class="fw-semibold">@x.Amount.ToString("N2")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else if (tab == "health")
+    {
+        <div class="alert alert-secondary bg-dark border-secondary border-opacity-25 text-light small d-flex justify-content-between align-items-center">
+            <span><strong>Wellness Privacy Notice:</strong> Personal wellness logs are for self-tracking only, never medical diagnosis. Values are blurred by default.</span>
+            <button type="button" class="btn btn-sm btn-outline-info" id="toggleHealthPrivacyBtn">Reveal Values</button>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <form asp-action="AddHealthRecord" method="post" class="friday-panel">
+                    <h6 class="fw-bold mb-3">Log Wellness Entry</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><input type="date" name="date" class="form-control form-control-sm" /></div>
+                        <div class="col-6"><input type="number" step="0.1" name="sleepHours" class="form-control form-control-sm" placeholder="Sleep (hrs)" /></div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><input type="number" step="0.1" name="waterIntakeLiters" class="form-control form-control-sm" placeholder="Water (L)" /></div>
+                        <div class="col-6"><input type="number" step="0.1" name="weightKg" class="form-control form-control-sm" placeholder="Weight (kg)" /></div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><input name="bloodPressure" class="form-control form-control-sm" placeholder="BP (120/80)" /></div>
+                        <div class="col-6"><input type="number" name="heartRateBpm" class="form-control form-control-sm" placeholder="Heart Rate" /></div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-8"><input name="exercise" class="form-control form-control-sm" placeholder="Exercise activity" /></div>
+                        <div class="col-4"><input type="number" name="exerciseMinutes" class="form-control form-control-sm" placeholder="Mins" /></div>
+                    </div>
+                    <textarea name="notes" rows="2" class="form-control form-control-sm mb-3" placeholder="Wellness notes..."></textarea>
+                    <button type="submit" class="btn btn-sm btn-friday-send w-100">Save Entry</button>
+                </form>
+            </div>
+            <div class="col-lg-8">
+                <div class="friday-panel">
+                    <h6 class="fw-bold mb-3">Wellness History</h6>
+                    @if (Model.HealthRecords.Count == 0)
+                    {
+                        <p class="text-secondary small mb-0">No wellness logs stored yet.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive health-blurred" id="healthTableContainer">
+                            <table class="friday-data-table">
+                                <thead><tr><th>Date</th><th>Sleep</th><th>Water</th><th>Exercise</th><th>BP / HR</th><th>Weight</th></tr></thead>
+                                <tbody>
+                                    @foreach (var h in Model.HealthRecords)
+                                    {
+                                        <tr>
+                                            <td>@h.Date.ToLocalTime().ToString("yyyy-MM-dd")</td>
+                                            <td>@(h.SleepHours?.ToString("F1") ?? "-") h</td>
+                                            <td>@(h.WaterIntakeLiters?.ToString("F1") ?? "-") L</td>
+                                            <td>@(h.Exercise ?? "-")</td>
+                                            <td>@(h.BloodPressure ?? "-") / @(h.HeartRateBpm?.ToString() ?? "-")</td>
+                                            <td>@(h.WeightKg?.ToString("F1") ?? "-") kg</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+<script>
+    const btn = document.getElementById("toggleHealthPrivacyBtn");
+    const box = document.getElementById("healthTableContainer");
+    btn?.addEventListener("click", () => {
+        if (!box) return;
+        const blurred = box.classList.toggle("health-blurred");
+        btn.textContent = blurred ? "Reveal Values" : "Blur Values";
+    });
+</script>
+}
+

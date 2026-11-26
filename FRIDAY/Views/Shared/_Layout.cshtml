@@ -1,0 +1,98 @@
+﻿@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    var tokens = Antiforgery.GetAndStoreTokens(Context);
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "Home";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="@tokens.RequestToken" />
+    <title>@ViewData["Title"] — FRIDAY Personal AI Assistant</title>
+    <link rel="icon" type="image/jpeg" href="~/images/friday-logo.jpg" asp-append-version="true" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/welcome.css" asp-append-version="true" />
+    <script>
+        (function () {
+            try {
+                var p = (window.location.pathname || "/").toLowerCase();
+                var isRoot = p === "/" || p === "/home" || p === "/home/index";
+                var qs = window.location.search || "";
+                if (isRoot && qs.indexOf("sessionId=") === -1) {
+                    document.documentElement.classList.add("friday-boot-pending");
+                }
+            } catch (e) {}
+        })();
+    </script>
+</head>
+<body class="friday-body">
+    <header class="friday-topbar">
+        <div class="container-fluid px-3 px-lg-4 d-flex align-items-center justify-content-between h-100">
+            <a class="friday-brand text-decoration-none d-flex align-items-center gap-2" asp-controller="Home" asp-action="Index">
+                <img src="~/images/friday-logo.jpg" alt="FRIDAY logo" class="friday-orb-logo" asp-append-version="true" />
+                <div>
+                    <span class="friday-brand-title">FRIDAY</span>
+                    <span class="friday-brand-sub d-none d-sm-inline">Personal AI Life Assistant</span>
+                </div>
+            </a>
+
+            <nav class="friday-nav d-none d-md-flex align-items-center gap-1 gap-md-2" aria-label="Main navigation">
+                <a class="friday-nav-link @(currentController == "Home" ? "active" : "")" asp-controller="Home" asp-action="Index">
+                    <span class="nav-dot"></span> Friday AI
+                </a>
+                <a class="friday-nav-link @(currentController == "Dashboard" ? "active" : "")" asp-controller="Dashboard" asp-action="Index">
+                    Dashboard
+                </a>
+                <a class="friday-nav-link @(currentController == "Workspace" ? "active" : "")" asp-controller="Workspace" asp-action="Index">
+                    Records
+                </a>
+                <a class="friday-nav-link @(currentController == "Profile" ? "active" : "")" asp-controller="Profile" asp-action="Index">
+                    Profile &amp; Privacy
+                </a>
+            </nav>
+
+            <button type="button"
+                    class="friday-mobile-toggle-btn d-md-none"
+                    id="globalNavToggleBtn"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#fridayMobileNav"
+                    aria-controls="fridayMobileNav"
+                    aria-expanded="false"
+                    aria-label="Toggle site navigation">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5" />
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <div class="collapse friday-mobile-nav-drawer d-md-none" id="fridayMobileNav">
+        <nav class="d-flex flex-column gap-1 p-2" aria-label="Mobile navigation">
+            <a class="friday-nav-link @(currentController == "Home" ? "active" : "")" asp-controller="Home" asp-action="Index">
+                <span class="nav-dot"></span> Friday AI
+            </a>
+            <a class="friday-nav-link @(currentController == "Dashboard" ? "active" : "")" asp-controller="Dashboard" asp-action="Index">
+                Dashboard
+            </a>
+            <a class="friday-nav-link @(currentController == "Workspace" ? "active" : "")" asp-controller="Workspace" asp-action="Index">
+                Records
+            </a>
+            <a class="friday-nav-link @(currentController == "Profile" ? "active" : "")" asp-controller="Profile" asp-action="Index">
+                Profile &amp; Privacy
+            </a>
+        </nav>
+    </div>
+
+    <main role="main" class="friday-main">
+        @RenderBody()
+    </main>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,92 @@
+@* Futuristic Full-Screen Voice Welcome / Boot Experience *@
+<div id="fridayWelcomeOverlay"
+     class="friday-welcome-overlay"
+     data-boot-state="FRIDAY_IDLE"
+     data-boot-phase="0"
+     role="dialog"
+     aria-modal="true"
+     aria-label="FRIDAY System Initialization Welcome Screen">
+
+    <!-- BackgroundEffects: obsidian navy base, radial cyan aura, horizon grid & scanlines -->
+    <div class="welcome-bg-effects" aria-hidden="true">
+        <div class="welcome-radial-glow"></div>
+        <div class="welcome-scanlines"></div>
+        <div class="welcome-energy-sweep"></div>
+    </div>
+
+    <!-- ParticleField: lightweight inward energy streams -->
+    <canvas id="welcomeParticleCanvas" class="welcome-particle-canvas" aria-hidden="true"></canvas>
+
+    <!-- Main Centered HUD Stage -->
+    <div class="welcome-stage">
+        <div class="welcome-top-telemetry" aria-hidden="true">
+            <span class="welcome-telemetry-dot"></span>
+            <span id="welcomeSystemPhaseLabel">SYSTEM INITIALIZING</span>
+        </div>
+
+        <!-- HUDRings + FridayAvatar -->
+        <div class="welcome-hud-core" id="welcomeHudCore">
+            <div class="welcome-hud-rings" aria-hidden="true">
+                <svg class="welcome-hud-svg welcome-ring-outer" viewBox="0 0 360 360">
+                    <circle cx="180" cy="180" r="170" class="hud-track-faint" />
+                    <circle cx="180" cy="180" r="170" class="hud-arc-cyan" stroke-dasharray="140 55 40 35 120 45" />
+                    <circle cx="180" cy="180" r="154" class="hud-arc-ticks" stroke-dasharray="3 12" />
+                </svg>
+                <svg class="welcome-hud-svg welcome-ring-middle" viewBox="0 0 360 360">
+                    <circle cx="180" cy="180" r="140" class="hud-track-indigo" />
+                    <circle cx="180" cy="180" r="140" class="hud-arc-bright" stroke-dasharray="90 70 150 65" />
+                </svg>
+                <svg class="welcome-hud-svg welcome-ring-inner" viewBox="0 0 360 360">
+                    <circle cx="180" cy="180" r="118" class="hud-arc-inner" stroke-dasharray="60 40 20 30" />
+                </svg>
+            </div>
+
+            <div class="welcome-avatar-aperture" id="welcomeAvatarStage">
+                <img src="~/images/friday-logo.jpg"
+                     alt="FRIDAY Personal AI Assistant Interface"
+                     class="welcome-avatar-img"
+                     asp-append-version="true" />
+                <div class="welcome-avatar-scanbeam" aria-hidden="true"></div>
+            </div>
+        </div>
+
+        <!-- FridayLogo -->
+        <div class="welcome-logo-block">
+            <h1 class="welcome-friday-logo" aria-label="FRIDAY">
+                <span>FRIDAY</span>
+            </h1>
+            <div class="welcome-subtitle">PERSONAL AI ASSISTANT INTERFACE</div>
+        </div>
+
+        <!-- VoiceWaveform (reusing VoiceVisualizer) -->
+        <div class="welcome-waveform-wrap">
+            <canvas id="welcomeWaveformCanvas" class="welcome-waveform-canvas" aria-label="FRIDAY voice activity waveform"></canvas>
+        </div>
+
+        <!-- VoiceStatus + MicrophoneIndicator -->
+        <div class="welcome-status-panel">
+            <div class="welcome-status-pill" id="welcomeVoiceStatus" role="status" aria-live="polite">
+                <span class="welcome-mic-dot d-none" id="welcomeMicIndicator" aria-hidden="true"></span>
+                <span id="welcomeVoiceStatusText">INITIALIZING NEURAL INTERFACE...</span>
+            </div>
+            <div class="welcome-transcript-hint" id="welcomeTranscriptHint" aria-live="polite">
+                Preparing audio &amp; voice subsystems...
+            </div>
+        </div>
+
+        <!-- ProceedButton (visible fallback + direct entry action) -->
+        <div class="welcome-actions">
+            <button type="button"
+                    id="welcomeProceedBtn"
+                    class="welcome-proceed-btn"
+                    aria-label="Proceed to FRIDAY dashboard">
+                <span class="welcome-proceed-glow" aria-hidden="true"></span>
+                <span>PROCEED</span>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8" />
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+

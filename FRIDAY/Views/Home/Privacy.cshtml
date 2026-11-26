@@ -1,0 +1,17 @@
+﻿@{
+    ViewData["Title"] = "Privacy & Security";
+}
+
+<div class="container py-4" style="max-width:820px;">
+    <div class="friday-panel">
+        <h3 class="fw-bold mb-3">Friday Privacy &amp; Security Architecture</h3>
+        <ul class="text-secondary d-flex flex-column gap-2 mb-0">
+            <li><strong class="text-light">Local SQLite Ownership:</strong> Your profile, tasks, projects, schedule, notes, expenses, and wellness entries are stored locally in SQLite without fictional pre-populated personal records.</li>
+            <li><strong class="text-light">Controlled MCP Boundary:</strong> Groq never receives raw SQL access. Every read, write, and destructive operation runs through validated Model Context Protocol (MCP) tools.</li>
+            <li><strong class="text-light">Destructive Confirmation:</strong> Deletions always pause for explicit server-enforced user confirmation.</li>
+            <li><strong class="text-light">Minimum Context Exposure:</strong> Only structured fields returned by relevant MCP tools are sent for reasoning. Sensitive Finance and Wellness AI access can be toggled off anytime in <a asp-controller="Profile" asp-action="Index" class="text-info">Profile &amp; Privacy</a>.</li>
+            <li><strong class="text-light">Sandboxed File MCP:</strong> File operations are restricted strictly to configured <code>FileMcp:AllowedDirectories</code>.</li>
+            <li><strong class="text-light">Secret Protection:</strong> API keys are read strictly on the server via .NET User Secrets or environment variables and are never logged or exposed to the browser.</li>
+        </ul>
+    </div>
+</div>
